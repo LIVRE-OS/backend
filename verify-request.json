@@ -1,0 +1,9 @@
+{
+  "commitment": "7738e025ced89a8d8d66d794e9f1af26e76f85d82ee53f018db917468b8a847",
+  "proof": {
+    "identityId": "...",
+    "templateId": "over18",
+    "proofHash": "bdf3...",
+    "issuedAt": "..."
+  }
+}
