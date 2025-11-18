@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Age Proof Demo – Sovereign Life Wallet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #050816;
+      color: #f9fafb;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 16px;
+      padding: 1.75rem;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 0.25rem;
+    }
+    h2 {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #9ca3af;
+      margin-top: 0;
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      margin-top: 0.75rem;
+      margin-bottom: 0.25rem;
+      font-size: 0.9rem;
+    }
+    input {
+      width: 100%;
+      padding: 0.5rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+      outline: none;
+    }
+    input:focus {
+      border-color: #f97316;
+      box-shadow: 0 0 0 1px #f97316;
+    }
+    button {
+      margin-top: 1rem;
+      width: 100%;
+      padding: 0.65rem;
+      border: none;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #f97316, #eab308);
+      color: #020617;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    pre {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: #020617;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      max-height: 240px;
+      overflow: auto;
+      border: 1px solid #1f2937;
+    }
+    .status {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+    }
+    .status.ok {
+      color: #22c55e;
+    }
+    .status.error {
+      color: #f97316;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: rgba(34, 197, 94, 0.12);
+      color: #bbf7d0;
+      margin-bottom: 0.75rem;
+    }
+    .badge span {
+      font-size: 0.7rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="badge">
+      <span>●</span> MVP-1 • Tech Demo
+    </div>
+    <h1>Age Proof Demo</h1>
+    <h2>Issue and verify a basic “Over 18” proof using our prototype API.</h2>
+
+    <label for="identity">Identity ID (or email, username…)</label>
+    <input id="identity" placeholder="e.g. user-123, test@example.com" />
+
+    <button id="issueBtn">1. Issue Over 18 Proof</button>
+    <div id="issueStatus" class="status"></div>
+    <pre id="issueResult" hidden></pre>
+
+    <button id="verifyBtn" disabled>2. Verify Proof</button>
+    <div id="verifyStatus" class="status"></div>
+    <pre id="verifyResult" hidden></pre>
+
+    <p style="margin-top: 0.75rem; font-size: 0.75rem; color: #9ca3af;">
+      ⚠️ Prototype only – responses are for demo and testing, not legal identity checks.
+    </p>
+  </main>
+
+  <script>
+    const API_BASE = "http://localhost:4000"; // change when you deploy
+
+    const identityInput = document.getElementById("identity");
+    const issueBtn = document.getElementById("issueBtn");
+    const verifyBtn = document.getElementById("verifyBtn");
+
+    const issueStatus = document.getElementById("issueStatus");
+    const verifyStatus = document.getElementById("verifyStatus");
+    const issueResult = document.getElementById("issueResult");
+    const verifyResult = document.getElementById("verifyResult");
+
+    let lastProofPayload = null;
+
+    issueBtn.addEventListener("click", async () => {
+      const identity = identityInput.value.trim();
+      if (!identity) {
+        issueStatus.textContent = "Please enter an identity first.";
+        issueStatus.className = "status error";
+        return;
+      }
+
+      issueBtn.disabled = true;
+      verifyBtn.disabled = true;
+      issueStatus.textContent = "Issuing proof…";
+      issueStatus.className = "status";
+
+      try {
+        const res = await fetch(`${API_BASE}/proof`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            identityId: identity,
+            templateId: "over18",
+          }),
+        });
+
+        const data = await res.json();
+        lastProofPayload = data;
+
+        issueResult.hidden = false;
+        issueResult.textContent = JSON.stringify(data, null, 2);
+
+        issueStatus.textContent = "Proof issued successfully.";
+        issueStatus.className = "status ok";
+
+        verifyBtn.disabled = false;
+      } catch (err) {
+        console.error(err);
+        issueStatus.textContent = "Failed to issue proof.";
+        issueStatus.className = "status error";
+      } finally {
+        issueBtn.disabled = false;
+      }
+    });
+
+    verifyBtn.addEventListener("click", async () => {
+      if (!lastProofPayload) {
+        verifyStatus.textContent = "No proof available to verify yet.";
+        verifyStatus.className = "status error";
+        return;
+      }
+
+      verifyBtn.disabled = true;
+      verifyStatus.textContent = "Verifying proof…";
+      verifyStatus.className = "status";
+
+      try {
+        const res = await fetch(`${API_BASE}/proof/verify`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(lastProofPayload),
+        });
+
+        const data = await res.json();
+
+        verifyResult.hidden = false;
+        verifyResult.textContent = JSON.stringify(data, null, 2);
+
+        if (data.valid) {
+          verifyStatus.textContent = "Proof is valid ✅";
+          verifyStatus.className = "status ok";
+        } else {
+          verifyStatus.textContent = "Proof is invalid (as currently implemented) ❌";
+          verifyStatus.className = "status error";
+        }
+      } catch (err) {
+        console.error(err);
+        verifyStatus.textContent = "Failed to verify proof.";
+        verifyStatus.className = "status error";
+      } finally {
+        verifyBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
