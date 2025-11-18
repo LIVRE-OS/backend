@@ -2,6 +2,7 @@
 import Fastify from "fastify";
 import proofRoutes from "./routes/proof";
 import identityRoutes from "./routes/identity";
+import vaultRoutes from "./routes/vault";
 
 async function buildServer() {
   const server = Fastify({
@@ -11,6 +12,7 @@ async function buildServer() {
   // Register route modules (no top-level await)
   server.register(proofRoutes);
   server.register(identityRoutes);
+  server.register(vaultRoutes);
 
   // Simple health check
   server.get("/health", async (_request, _reply) => {

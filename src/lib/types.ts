@@ -1,4 +1,5 @@
 // src/lib/types.ts
+import type { EncryptedBlob } from "./crypto";
 
 // What we store for each identity (in-memory for now)
 export interface IdentityRecord {
@@ -6,6 +7,19 @@ export interface IdentityRecord {
   commitment: string;
   attributesRoot: string;
   createdAt: string;
+  controlKey: string;
+  recoveryKey: string;
+  policiesRoot: string;
+}
+
+export interface AttributesPayload {
+  birthdate: string;
+  country: string;
+}
+
+export interface StoredAttributes {
+  encrypted: EncryptedBlob;
+  attributesRoot: string;
 }
 
 // Request body for /proof

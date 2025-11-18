@@ -28,16 +28,19 @@ export default async function proofRoutes(fastify: FastifyInstance) {
 
   // Verify proof bundle against the stored identity + commitment
   fastify.post("/proof/verify", async (request, reply) => {
-    const body = request.body as
-      | { proof: ProofBundle; commitment: string }
-      | undefined;
+    const body = request.body as { identityId?: string; proof?: ProofBundle } | undefined;
 
-    if (!body || !body.proof || !body.commitment) {
+    if (!body || !body.identityId || !body.proof) {
       reply.code(400);
-      return { error: "proof and commitment required" };
+      return { error: "identityId and proof are required" };
     }
 
-    const ok = verifyProof(body.proof, body.commitment);
+    if (body.identityId !== body.proof.identityId) {
+      reply.code(400);
+      return { error: "identityId mismatch between request and proof bundle" };
+    }
+
+    const ok = verifyProof(body.proof);
     return { valid: ok };
   });
 }

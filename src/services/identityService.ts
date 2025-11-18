@@ -41,6 +41,9 @@ export function createIdentity(): IdentityRecord {
     commitment,
     attributesRoot,
     createdAt: new Date().toISOString(),
+    controlKey,
+    recoveryKey,
+    policiesRoot,
   };
 
   identities.set(identityId, record);
@@ -49,4 +52,30 @@ export function createIdentity(): IdentityRecord {
 
 export function getIdentity(id: string): IdentityRecord | undefined {
   return identities.get(id);
+}
+
+export function updateAttributesRoot(
+  identityId: string,
+  newAttributesRoot: string
+): IdentityRecord | null {
+  const record = identities.get(identityId);
+  if (!record) {
+    return null;
+  }
+
+  const commitment = makeCommitment(
+    record.controlKey,
+    record.recoveryKey,
+    newAttributesRoot,
+    record.policiesRoot
+  );
+
+  const updated: IdentityRecord = {
+    ...record,
+    attributesRoot: newAttributesRoot,
+    commitment,
+  };
+
+  identities.set(identityId, updated);
+  return updated;
 }

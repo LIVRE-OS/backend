@@ -31,16 +31,14 @@ export function generateProof(req: ProofRequest): ProofBundle | null {
   return bundle;
 }
 
-// Verify that the proof bundle matches the commitment & stored identity
-export function verifyProof(bundle: ProofBundle, commitment: string): boolean {
+// Verify that the proof bundle matches the stored commitment for the identity
+export function verifyProof(bundle: ProofBundle): boolean {
   const identity = getIdentity(bundle.identityId);
   if (!identity) return false;
 
-  if (identity.commitment !== commitment) return false;
-
   const recomputed = createHash("sha256")
     .update(bundle.identityId)
-    .update(commitment)
+    .update(identity.commitment)
     .update(bundle.templateId)
     .digest("hex");
 
