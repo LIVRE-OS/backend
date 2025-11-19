@@ -1,98 +1,80 @@
-## Backend MVP Flow
+# LIVRE OS – Identity & Proof Backend (MVP 0.1)
 
-This backend exposes three Fastify routes that let you create an identity, request a proof for one of the available templates, and verify that proof. All data is stored in memory, so keep the server running while exercising the flow.
+This is the first backend for **LIVRE OS**: a minimal identity + proof engine that can be used by any Agent or application to:
 
-### 1. Create an Identity
+- Create a local identity
+- Attach attributes (e.g. birthdate, country)
+- Generate a proof for a given template
+- Verify that a proof is valid for a given identity
 
-```
-POST /identity
-```
+It is intentionally simple, in-memory, and framework-light – a **kernel** that can be extended into a full sovereign identity layer.
 
-Request body: `{}` (optional).  
-Response:
+---
 
-```json
-{
-  "identityId": "string",
-  "commitment": "string"
-}
-```
+## ✨ Features (MVP 0.1)
 
-Sample command:
+- `POST /identity` – create a new identity with a random identifier and commitment
+- `POST /attributes` – attach/update attributes (e.g. birthdate, country) for an existing identity
+- `POST /proof` – generate a proof bundle for a given template
+- `POST /proof/verify` – verify that a proof bundle is valid for a given identity
 
-```powershell
-curl -X POST http://localhost:4000/identity
-```
+Current proof template:
 
-Copy both `identityId` and `commitment`; you'll need them for `/proof`.
+- `age_over_18_and_resident_pt` – currently used as an example template ID  
+  (MVP focuses on the **consistency** of identity + attributes + proof; semantic checks like “18+” / “PT” will come in later phases.)
 
-### 2. Generate a Proof
+All state is stored **in memory only** – each server restart resets identities, attributes and proofs.
 
-```
-POST /proof
-```
+---
 
-Request body:
+## 🧱 Architecture Overview
 
-```json
-{
-  "identityId": "string",
-  "commitment": "string",
-  "templateId": "age_over_18_and_resident_pt"
-}
-```
+The backend is structured as:
 
-If the identity exists and the commitment matches the stored value, the server returns a deterministic proof bundle:
+```text
+src/
+  index.ts            # Fastify server and route registration
+  config.ts           # Basic config (ports, CORS, etc.)
+  lib/
+    types.ts          # Core TypeScript types for Identity, Proof, Attributes
+  routes/
+    identity.ts       # /identity and /attributes endpoints
+    proof.ts          # /proof and /proof/verify endpoints
+  services/
+    identityService.ts  # Identity creation + attribute updates
+    proofService.ts     # Proof generation + proof verification
+  types/
+    cors.d.ts         # Type definition to help with CORS lib typing
+docs/
+  architecture.md     # High level architecture and flow
+  api-contract.md     # Endpoint contracts (request/response examples)
+  identity-spec-v0.1.md  # (new) Identity & proof JSON format spec
+run-local.md          # How to run the backend locally
 
-```json
-{
-  "identityId": "string",
-  "templateId": "age_over_18_and_resident_pt",
-  "proofHash": "string",
-  "issuedAt": "2025-11-18T12:07:31.173Z"
-}
-```
+Fastify is used as the HTTP server; everything else is plain TypeScript.
 
-Sample command (replace placeholder values with those from `/identity`):
+For a deeper explanation of flows and responsibilities, see:
 
-```powershell
-curl -X POST http://localhost:4000/proof ^
-  -H "Content-Type: application/json" ^
-  -d "{\"identityId\":\"<identityId>\",\"commitment\":\"<commitment>\",\"templateId\":\"age_over_18_and_resident_pt\"}"
-```
+docs/architecture.md
 
-### 3. Verify a Proof
+docs/api-contract.md
 
-```
-POST /proof/verify
-```
+docs/identity-spec-v0.1.md
 
-Request body:
-
-```json
-{
-  "identityId": "string",
-  "proof": {
-    "identityId": "string",
-    "templateId": "age_over_18_and_resident_pt",
-    "proofHash": "string",
-    "issuedAt": "2025-11-18T12:07:31.173Z"
-  }
-}
+🚀 Getting Started (Local Dev)
+```python
+1. Install dependencies
+npm install
 ```
 
-The `proof` object is exactly what the `/proof` endpoint generated. Response:
+2. Run in dev mode (with ts-node-dev)
+npm run dev
 
-```json
-{ "valid": true }
-```
 
-Sample command:
+The backend will start (by default) on:
 
-```powershell
-curl -X POST http://localhost:4000/proof/verify ^
-  -H "Content-Type: application/json" ^
-  -d "{\"identityId\":\"<identityId>\",\"proof\":<proof-json>}"
-```
+http://localhost:4000
 
-Replace `<proof-json>` with the verbatim JSON object returned by `/proof`. The verifier recomputes the proof hash using the stored commitment and reports whether the provided bundle is valid.
+3. Build + run (production style)
+npm run build
+npm start
