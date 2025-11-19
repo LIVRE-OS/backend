@@ -1,0 +1,104 @@
+1. Backend – Endpoints
+
+POST /identity
+Cria uma nova identidade:
+
+{
+  "identityId": "abc123...",
+  "commitment": "hash..."
+}
+
+
+POST /attributes
+Recebe:
+
+{
+  "identityId": "abc123...",
+  "birthdate": "1999-11-11",
+  "country": "PT"
+}
+
+
+Atualiza essa identity em memória (não cria nova) e devolve:
+
+{
+  "identityId": "abc123...",
+  "commitment": "hash_atualizado...",
+  "attributesRoot": "hash_dos_atributos..."
+}
+
+
+POST /proof
+Recebe algo tipo:
+
+{
+  "identityId": "abc123...",
+  "templateId": "age_over_18_and_resident_pt"
+}
+
+
+E devolve o bundle:
+
+{
+  "identityId": "abc123...",
+  "proof": {
+    "identityId": "abc123...",
+    "templateId": "age_over_18_and_resident_pt",
+    "proofHash": "hash_da_prova...",
+    "issuedAt": "timestamp..."
+  }
+}
+
+
+POST /proof/verify
+Recebe:
+
+{
+  "identityId": "abc123...",
+  "proof": {
+    "identityId": "abc123...",
+    "templateId": "age_over_18_and_resident_pt",
+    "proofHash": "hash_da_prova...",
+    "issuedAt": "timestamp..."
+  }
+}
+
+
+O backend recalcula internamente e responde:
+
+{ "valid": true }
+
+
+ou
+
+{ "valid": false }
+
+🔹 2. Agent UI
+
+Cria identity
+
+Guarda atributos (DOB + país)
+
+Gera proof
+
+Exporta Identity JSON + Proof JSON prontos para o Verifier
+
+🔹 3. Verifier UI
+
+Aceita os dois JSONs
+
+Faz POST /proof/verify
+
+Mostra o { "valid": true/false }
+
+🔹 4. O que esse valid: true quer dizer, na prática
+
+A prova foi mesmo gerada por nós para aquela identityId.
+
+O proofHash não foi inventado à mão.
+
+O par identity + proof é coerente.
+
+Se alguém alterar um byte na proof → passa a valid: false.
+
+Isto é camada 1: integridade criptográfica do par identity–proof.

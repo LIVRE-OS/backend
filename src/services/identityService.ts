@@ -1,4 +1,5 @@
 // src/services/identityService.ts
+// MVP: in-memory identity registry for Age Proof demo. Restarting clears everything.
 import { randomBytes, createHash } from "crypto";
 import type { IdentityRecord } from "../lib/types";
 
@@ -58,6 +59,7 @@ export function updateAttributesRoot(
   identityId: string,
   newAttributesRoot: string
 ): IdentityRecord | null {
+  // Placeholder: vault service calls this after synthetic attribute updates.
   const record = identities.get(identityId);
   if (!record) {
     return null;

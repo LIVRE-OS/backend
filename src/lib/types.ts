@@ -10,6 +10,12 @@ export interface IdentityRecord {
   controlKey: string;
   recoveryKey: string;
   policiesRoot: string;
+  attributes?: AttributesPayload;
+}
+
+export interface IdentityCreateResponse {
+  identityId: string;
+  commitment: string;
 }
 
 export interface AttributesPayload {
@@ -35,4 +41,9 @@ export interface ProofBundle {
   templateId: string;
   proofHash: string;
   issuedAt: string;
+}
+
+export interface ProofVerifyRequest {
+  identityId: string;
+  proof: ProofBundle;
 }

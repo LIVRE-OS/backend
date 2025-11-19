@@ -5,9 +5,10 @@
     "rootDir": "src",
     "outDir": "dist",
     "esModuleInterop": true,
+    "typeRoots": ["./src/types", "./node_modules/@types"],
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src"],
+  "include": ["src", "src/types"],
   "exclude": ["node_modules", "src/agent"]
 }

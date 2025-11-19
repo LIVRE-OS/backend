@@ -1,0 +1,5 @@
+1. npm install (backend)
+2. npm run dev (backend)
+3. npm install (website)
+4. npm run dev (website)
+5. Open http://localhost:3000 (Agent/Verifier)
