@@ -78,3 +78,155 @@ http://localhost:4000
 3. Build + run (production style)
 npm run build
 npm start
+
+📡 API Endpoints (MVP)
+POST /identity
+
+Create a new identity with a fresh identifier and commitment.
+
+Response:
+
+{
+  "identityId": "5cdb2ddc8263f042d8fccf32280e2795",
+  "commitment": "70823fd4acb455b8d3a4b962782ad787b72d9b7360e7dc15d7a94a0265f118fa"
+}
+
+POST /attributes
+
+Attach or update attributes for an existing identity.
+
+In MVP 0.1, attributes include: birthdate (YYYY-MM-DD) and country (ISO 2-letter code).
+
+Request:
+
+{
+  "identityId": "5cdb2ddc8263f042d8fccf32280e2795",
+  "birthdate": "1999-11-11",
+  "country": "PT"
+}
+
+
+Response:
+
+{
+  "identityId": "5cdb2ddc8263f042d8fccf32280e2795",
+  "commitment": "e6eaa881d38e434bbeee403eeb8abe68180c181593f6877ee56e467f6dfb43e4",
+  "attributesRoot": "2d87b162fa421ad6265685ce099847000cb1514414e0f3f02e315e12c5fcb72a"
+}
+
+
+The commitment and attributesRoot reflect the updated internal state for that identity.
+
+POST /proof
+
+Generate a proof bundle for a given identity and template.
+
+Request:
+
+{
+  "identityId": "5cdb2ddc8263f042d8fccf32280e2795",
+  "templateId": "age_over_18_and_resident_pt"
+}
+
+
+Response:
+
+{
+  "identityId": "5cdb2ddc8263f042d8fccf32280e2795",
+  "proof": {
+    "identityId": "5cdb2ddc8263f042d8fccf32280e2795",
+    "templateId": "age_over_18_and_resident_pt",
+    "proofHash": "583a8f396a2cf1885738305fc9d1bc510250344771f0d431acfca81540c88a5a",
+    "issuedAt": "2025-11-19T03:26:21.985Z"
+  }
+}
+
+
+This bundle is what an Agent exports to a Verifier.
+
+POST /proof/verify
+
+Verify that the provided proof bundle is valid for the given identity.
+
+Request:
+
+{
+  "identityId": "5cdb2ddc8263f042d8fccf32280e2795",
+  "proof": {
+    "identityId": "5cdb2ddc8263f042d8fccf32280e2795",
+    "templateId": "age_over_18_and_resident_pt",
+    "proofHash": "583a8f396a2cf1885738305fc9d1bc510250344771f0d431acfca81540c88a5a",
+    "issuedAt": "2025-11-19T03:26:21.985Z"
+  }
+}
+
+
+Response:
+
+{ "valid": true }
+
+
+If any check fails (identity not found, mismatch, missing fields, hash mismatch), the route responds with valid: false or a 400/404 error with a clear message.
+
+🧩 Design Goals
+
+Simplicity first – In-memory storage, minimal surface area.
+
+Deterministic proofs – Same identity + attributes + template → same proofHash.
+
+Extensibility – Easy to add more templates, attributes, or storage backends.
+
+Foundational – Acts as the Layer 1 identity & proof engine for the larger LIVRE OS stack.
+
+🗺 Roadmap (high level)
+
+MVP 0.1 focuses on the identity–proof pair. Next steps include:
+
+Agent Layer (Phase 2)
+
+Multi-identity management
+
+Attribute validation (DOB, country, etc.)
+
+Better UI export for Agent/Verifier
+
+Local vault for identities (encrypted storage)
+
+Template Semantics
+
+Declarative templates (e.g. “age ≥ 18”, “country == PT”)
+
+Enforcing template logic in proof generation
+
+Attestations
+
+Support for third-party issuers signing claims
+
+Attestation objects (issuer, claims, signature, issuedAt)
+
+Persistent Storage
+
+Pluggable backend: file, DB, or wallet-based storage
+
+Integration with Other LIVRE OS Modules
+
+Wallet, permissions, sovereign apps, etc.
+
+🤝 Contributing
+
+Right now this repo is in early design / exploration.
+Suggestions, issues, and lightweight PRs are welcome – especially around:
+
+doc clarity
+
+better validation
+
+new proof templates
+
+improved architecture
+
+📜 License
+
+TBD – to be defined once the project structure stabilises.
+
+For now, treat this as exploratory / research code.
