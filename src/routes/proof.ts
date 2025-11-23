@@ -1,5 +1,6 @@
 // src/routes/proof.ts
 // Agent issues proofs via POST /proof; Verifier posts bundles to /proof/verify.
+
 import type { FastifyInstance } from "fastify";
 import type {
   ProofRequest,
@@ -9,8 +10,9 @@ import type {
 import { generateProof, verifyProof } from "../services/proofService";
 
 export default async function proofRoutes(fastify: FastifyInstance) {
-  // Generate proof for an identity + template
-  // MVP assumption: identity must have been created earlier in this process.
+  // -----------------------------------------
+  // Generate Proof
+  // -----------------------------------------
   fastify.post("/proof", async (request, reply) => {
     const body = request.body as ProofRequest | undefined;
 
@@ -30,15 +32,16 @@ export default async function proofRoutes(fastify: FastifyInstance) {
       reply.code(400);
       return {
         error:
-          "Unable to generate proof (identity not found or commitment mismatch)",
+          "Unable to generate proof (identity not found, commitment mismatch, or attributes do not satisfy the template requirements)",
       };
     }
 
     return proof;
   });
 
-  // Verify proof bundle against the stored identity + commitment
-  // Verifier UI sends the exact proof the Agent just returned.
+  // -----------------------------------------
+  // Verify Proof
+  // -----------------------------------------
   fastify.post("/proof/verify", async (request, reply) => {
     const body = request.body as ProofVerifyRequest | undefined;
 
@@ -48,6 +51,7 @@ export default async function proofRoutes(fastify: FastifyInstance) {
     }
 
     const proof = body.proof as ProofBundle;
+
     if (
       typeof proof.identityId !== "string" ||
       typeof proof.templateId !== "string" ||
@@ -55,7 +59,7 @@ export default async function proofRoutes(fastify: FastifyInstance) {
       typeof proof.issuedAt !== "string"
     ) {
       reply.code(400);
-      return { error: "identityId and proof are required" };
+      return { error: "Malformed proof bundle" };
     }
 
     if (body.identityId !== proof.identityId) {
@@ -63,7 +67,7 @@ export default async function proofRoutes(fastify: FastifyInstance) {
       return { error: "identityId mismatch between request and proof bundle" };
     }
 
-    const ok = verifyProof(proof);
+    const ok = verifyProof({ identityId: body.identityId }, proof);
     return { valid: ok };
   });
-}
+} // <-- THIS is the final bracket

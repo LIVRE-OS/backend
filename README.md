@@ -1,13 +1,13 @@
-# LIVRE OS – Identity & Proof Backend (MVP 0.1)
+# LIVRE OS - Livre Identity Node v0.2
 
-This is the first backend for **LIVRE OS**: a minimal identity + proof engine that can be used by any Agent or application to:
+Livre Identity Node v0.2 is a minimal identity + proof engine that now serves both the REST API and the Agent/Verifier website from a single Fastify server. Use it to:
 
 - Create a local identity
 - Attach attributes (e.g. birthdate, country)
 - Generate a proof for a given template
 - Verify that a proof is valid for a given identity
 
-It is intentionally simple, in-memory, and framework-light – a **kernel** that can be extended into a full sovereign identity layer.
+It is intentionally simple and framework-light - a kernel that can be extended into a full sovereign identity layer.
 
 ---
 
@@ -17,13 +17,24 @@ It is intentionally simple, in-memory, and framework-light – a **kernel** that
 - `POST /attributes` – attach/update attributes (e.g. birthdate, country) for an existing identity
 - `POST /proof` – generate a proof bundle for a given template
 - `POST /proof/verify` – verify that a proof bundle is valid for a given identity
+- `/`, `/agent`, `/verifier`, `/assets/...` - serve the Agent + Verifier UI from the same Fastify process
+- Proof issuance/verification replays the template logic (age >= 18 and resident in PT for the default rite) against the attributes sealed in the vault.
 
 Current proof template:
 
 - `age_over_18_and_resident_pt` – currently used as an example template ID  
   (MVP focuses on the **consistency** of identity + attributes + proof; semantic checks like “18+” / “PT” will come in later phases.)
 
-All state is stored **in memory only** – each server restart resets identities, attributes and proofs.
+Identity data is stored in data/vault.json.enc using AES-256-GCM encryption derived from VAULT_PASSPHRASE, so identities survive restarts (delete the file to reset the node).
+
+### Running Livre Identity Node locally
+
+1. Install dependencies: `npm install`
+2. Export a vault key (recommended): `set VAULT_PASSPHRASE=choose-a-strong-passphrase`
+3. Start the dev server: `npm run dev` (production: `npm run build && npm start`)
+4. Visit `http://localhost:4000/` for `/` (home), `/agent`, and `/verifier`.
+
+See `docs/deployment.md` for more deployment notes.
 
 ---
 

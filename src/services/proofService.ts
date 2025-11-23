@@ -1,9 +1,16 @@
 // src/services/proofService.ts
 // MVP deterministic proofs for the Agent/Verifier demos. Not real crypto commitments.
+
 import { createHash } from "crypto";
 import { hashBytes } from "../lib/crypto";
-import type { ProofRequest, ProofBundle, AttributesPayload } from "../lib/types";
-import { getIdentity } from "./identityService";
+import type {
+  ProofRequest,
+  ProofBundle,
+  AttributesPayload,
+  IdentityRecord,
+} from "../lib/types";
+import { getIdentity, persistIdentityStore } from "./identityService";
+import { DEFAULT_TEMPLATE_ID } from "../config";
 
 interface SetAttributesResult {
   identityId: string;
@@ -11,6 +18,9 @@ interface SetAttributesResult {
   attributesRoot: string;
 }
 
+// -----------------------------------------------
+// Attribute Hashing
+// -----------------------------------------------
 function hashAttributes(attrs: AttributesPayload): string {
   return hashBytes(
     JSON.stringify({
@@ -34,6 +44,80 @@ function computeCommitment(
   return h.digest("hex");
 }
 
+function computeProofHash({
+  identityId,
+  templateId,
+  commitment,
+  attributesRoot,
+}: {
+  identityId: string;
+  templateId: string;
+  commitment: string;
+  attributesRoot?: string | null;
+}): string {
+  const root = attributesRoot ?? "";
+  return createHash("sha256")
+    .update(identityId)
+    .update(templateId)
+    .update(commitment)
+    .update(root)
+    .digest("hex");
+}
+
+// -----------------------------------------------
+// Birthdate parsing & age
+// -----------------------------------------------
+function parseBirthdate(value: string): Date | null {
+  const [year, month, day] = value.split("-").map((n) => Number(n));
+  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
+    return null;
+  }
+  const d = new Date(Date.UTC(year, month - 1, day));
+  return d.getUTCFullYear() === year &&
+    d.getUTCMonth() + 1 === month &&
+    d.getUTCDate() === day
+    ? d
+    : null;
+}
+
+function calculateAge(birthdate: Date, now: Date): number {
+  let age = now.getUTCFullYear() - birthdate.getUTCFullYear();
+  const m = now.getUTCMonth() - birthdate.getUTCMonth();
+  if (m < 0 || (m === 0 && now.getUTCDate() < birthdate.getUTCDate())) {
+    age--;
+  }
+  return age;
+}
+
+// -----------------------------------------------
+// Template Enforcement
+// -----------------------------------------------
+function attributesMeetTemplateRequirements(
+  identity: IdentityRecord,
+  templateId: string
+): boolean {
+  const attrs = identity.attributes;
+  if (!attrs || !attrs.birthdate || !attrs.country) {
+    return false;
+  }
+
+  const parsedBirthdate = parseBirthdate(attrs.birthdate);
+  if (!parsedBirthdate) return false;
+
+  const age = calculateAge(parsedBirthdate, new Date());
+  const country = attrs.country.toUpperCase();
+
+  switch (templateId) {
+    case DEFAULT_TEMPLATE_ID:
+      return age >= 18 && country === "PT";
+    default:
+      return false;
+  }
+}
+
+// -----------------------------------------------
+// Attribute Setter
+// -----------------------------------------------
 export function setAttributes(
   identityId: string,
   attrs: AttributesPayload
@@ -58,53 +142,90 @@ export function setAttributes(
   identity.attributesRoot = attributesRoot;
   identity.commitment = commitment;
 
-  return {
-    identityId,
-    commitment,
-    attributesRoot,
-  };
+  persistIdentityStore();
+
+  return { identityId, commitment, attributesRoot };
 }
 
-// Generate a deterministic proof for (identityId, commitment, templateId)
-// Assumes caller already created an identity this session and passes the stored commitment.
+// -----------------------------------------------
+// Proof Generation
+// -----------------------------------------------
 export function generateProof(req: ProofRequest): ProofBundle | null {
   const identity = getIdentity(req.identityId);
   if (!identity) {
     return null;
   }
 
-  // Make sure caller isn't lying about the commitment
   if (identity.commitment !== req.commitment) {
     return null;
   }
 
-  const proofHash = createHash("sha256")
-    .update(req.identityId)
-    .update(req.commitment)
-    .update(req.templateId)
-    .digest("hex");
+  if (!attributesMeetTemplateRequirements(identity, req.templateId)) {
+    return null;
+  }
 
-  const bundle: ProofBundle = {
+  const proofHash = computeProofHash({
+    identityId: req.identityId,
+    templateId: req.templateId,
+    commitment: identity.commitment,
+    attributesRoot: identity.attributesRoot,
+  });
+
+  return {
     identityId: req.identityId,
     templateId: req.templateId,
     proofHash,
     issuedAt: new Date().toISOString(),
   };
-
-  return bundle;
 }
 
-// Verify that the proof bundle matches the stored commitment for the identity
-// Used by the Verifier UI to check the payload the Agent produced moments earlier.
-export function verifyProof(bundle: ProofBundle): boolean {
-  const identity = getIdentity(bundle.identityId);
-  if (!identity) return false;
+// -----------------------------------------------
+// PROOF VERIFICATION
+// -----------------------------------------------
+export function verifyProof(
+  identityPayload: { identityId: string },
+  bundle: ProofBundle
+): boolean {
+  const { identityId } = identityPayload;
+  const { templateId, proofHash } = bundle;
 
-  const recomputed = createHash("sha256")
-    .update(bundle.identityId)
-    .update(identity.commitment)
-    .update(bundle.templateId)
-    .digest("hex");
+  // 1. Identity in payload must match identity in proof
+  if (identityId !== bundle.identityId) {
+    return false;
+  }
 
-  return recomputed === bundle.proofHash;
+  // 2. Load stored identity
+  const stored = getIdentity(identityId);
+  if (!stored) {
+    return false;
+  }
+
+  // 3. Check that stored attributes satisfy the template
+  if (!attributesMeetTemplateRequirements(stored, templateId)) {
+    return false;
+  }
+
+  // 4. Ensure we have an attributesRoot for this identity
+  let attributesRoot = stored.attributesRoot;
+  if (!attributesRoot && stored.attributes) {
+    // recompute using the same logic as setAttributes()
+    attributesRoot = hashAttributes(stored.attributes as AttributesPayload);
+    stored.attributesRoot = attributesRoot;
+    persistIdentityStore();
+  }
+
+  if (!attributesRoot) {
+    return false;
+  }
+
+  // 5. Recompute the expected proof hash from stored values
+  const expectedHash = computeProofHash({
+    identityId: stored.identityId,
+    templateId,
+    commitment: stored.commitment,
+    attributesRoot,
+  });
+
+  // 6. Final decision
+  return expectedHash === proofHash;
 }

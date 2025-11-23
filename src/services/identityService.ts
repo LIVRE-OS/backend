@@ -1,9 +1,19 @@
 // src/services/identityService.ts
-// MVP: in-memory identity registry for Age Proof demo. Restarting clears everything.
+// Identity registry backed by the encrypted vault service.
 import { randomBytes, createHash } from "crypto";
 import type { IdentityRecord } from "../lib/types";
+import { loadVaultState, saveVaultState } from "./vault";
 
 const identities = new Map<string, IdentityRecord>();
+
+const initialState = loadVaultState();
+initialState.identities.forEach((record) => {
+  identities.set(record.identityId, record);
+});
+
+function persistIdentities(): void {
+  saveVaultState({ identities: Array.from(identities.values()) });
+}
 
 function randomId(): string {
   return randomBytes(16).toString("hex");
@@ -48,6 +58,7 @@ export function createIdentity(): IdentityRecord {
   };
 
   identities.set(identityId, record);
+  persistIdentities();
   return record;
 }
 
@@ -59,7 +70,6 @@ export function updateAttributesRoot(
   identityId: string,
   newAttributesRoot: string
 ): IdentityRecord | null {
-  // Placeholder: vault service calls this after synthetic attribute updates.
   const record = identities.get(identityId);
   if (!record) {
     return null;
@@ -79,5 +89,10 @@ export function updateAttributesRoot(
   };
 
   identities.set(identityId, updated);
+  persistIdentities();
   return updated;
+}
+
+export function persistIdentityStore(): void {
+  persistIdentities();
 }

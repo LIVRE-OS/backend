@@ -1,27 +1,27 @@
 ## Backend Architecture Overview
 
-This backend powers the Solivre/Sovereign Life Wallet MVP by exposing a minimal Fastify API that issues and verifies deterministic proofs for synthetic identities. The API is consumed by two clients:
+Livre Identity Node v0.2 exposes the REST API and the Agent/Verifier website from a single Fastify server. The same process issues deterministic proofs, verifies bundles, and serves the static assets under `website/`.
 
-- **Agent UI** (`website/agent.html` + assets) – creates identities and requests proofs.
-- **Verifier UI** (`website/verifier.html`) – accepts `{ identityId, proof }` bundles and calls the backend to validate them.
-
-Until persistence is implemented, all data lives in memory and is cleared whenever the Node.js process restarts.
+- **Agent UI** (`website/agent.html` + assets) - creates identities, manages multiple personas via an in-memory list on the frontend, validates birthdate/country inputs, saves attributes, and generates proofs for the active identity.
+- **Verifier UI** (`website/verifier.html`) - accepts `{ identityId, proof }` bundles exported from the Agent and calls `/proof/verify` to confirm validity.
 
 ### Key Modules
 
-- `src/index.ts` – Entry point that builds the Fastify server, installs CORS, registers the route modules, and exposes `/identity`, `/proof`, `/proof/verify`, plus `/health`.
-- `src/routes/identity.ts` – Declares the identity routes. `POST /identity` creates a new record (identityId + commitment); `GET /identity/:id` returns the stored commitment and metadata while the process stays alive.
-- `src/routes/proof.ts` – Declares the proof issuance (`POST /proof`) and verification (`POST /proof/verify`) endpoints. They validate request bodies, call the proof service, and emit deterministic JSON responses.
-- `src/services/identityService.ts` – Implements the in-memory identity registry via a `Map`. Each identity stores control/recovery keys, the current attributes root, and the derived commitment. The map only persists for the current runtime.
-- `src/services/proofService.ts` – Provides `generateProof` and `verifyProof`. Proof issuance hashes the tuple `(identityId, commitment, templateId)` to produce a deterministic `proofHash`; verification recomputes the same hash with the stored commitment to confirm integrity.
+- `src/index.ts` - Entry point that builds Fastify, wires CORS, registers API routes, and serves `/`, `/agent`, `/verifier`, and `/assets/...` from the `website/` directory.
+- `src/routes/identity.ts` - Declares `/identity` and `/attributes`. Creating an identity generates control/recovery keys plus commitments; posting attributes validates birthdate/country and updates the commitment.
+- `src/routes/proof.ts` - Declares `/proof` (issue) and `/proof/verify` (validate). Both reuse the in-memory identity cache that mirrors the vault.
+- `src/services/vault.ts` - Minimal AES-256-GCM vault that persists identity records to `data/vault.json.enc` using `VAULT_PASSPHRASE`.
+- `src/services/identityService.ts` - Loads all identity records from the vault at startup, keeps them in a `Map` for fast lookups, and writes every change (create/update) back to the encrypted vault.
+- `src/services/proofService.ts` - Provides `generateProof`, `verifyProof`, and `setAttributes`. Proof issuance hashes `(identityId, templateId, commitment, attributesRoot)` so the `proofHash` is bound to the exact vault record, and it enforces template rules (age ≥ 18 & country PT for the default template) before minting proofs; verification recomputes the hash and re-checks the same attribute logic; attribute updates hash the birthdate/country pair, recompute the commitment, and persist via the vault.
 
-### In-Memory Storage Model
+### Storage Model
 
-- Records are stored in module-level maps; they disappear on server restart.
-- Commitment values are recomputed whenever attributes change (future templates will plug into that process).
-- Because storage is ephemeral, clients must call `/identity` and `/proof` within the same backend session.
+- Records are cached in module-level maps for fast runtime lookups but are persisted to `data/vault.json.enc`.
+- AES-256-GCM encryption keys are derived from `VAULT_PASSPHRASE` (defaults to a development value if not provided, with a console warning).
+- Deleting `data/vault.json.enc` resets the node; otherwise identities survive restarts.
 
 ### Relationship to the Website
 
-- The `website/` subdirectory contains the static Agent and Verifier experiences. They call the backend endpoints documented below.
-- When deploying, point the website’s `BACKEND_URL` (see `website/assets/js/agent.js` and `website/assets/js/verifier.js`) to the hosted Fastify instance so the flows continue to work.
+- The `website/` directory is served directly by the backend. Visiting `/`, `/agent`, or `/verifier` loads the Agent/Verifier experiences without needing an additional static host.
+- Agent/Verifier JavaScript uses relative API paths (e.g., `fetch('/identity')`), so no extra CORS configuration is necessary when using the bundled server.
+- Frontend validation mirrors backend rules: birthdates must match `YYYY-MM-DD`, represent a real calendar date that is not in the future (and under 150 years old), and countries must be two uppercase letters. Invalid inputs are blocked client-side and still rejected server-side if they slip through.

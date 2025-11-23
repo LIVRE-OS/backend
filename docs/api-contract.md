@@ -29,6 +29,64 @@ Status: `200 OK`
 
 ---
 
+### `POST /attributes`
+
+Attach birthdate and country metadata to an existing identity. Updates the stored `attributesRoot` and recalculates the commitment.
+
+**Request Body**
+
+```json
+{
+  "identityId": "0f5b2e9d34cb49b2ac62e98fb97df30a",
+  "birthdate": "1990-01-01",
+  "country": "PT"
+}
+```
+
+All three fields are required strings. `birthdate` must match `YYYY-MM-DD`, be a valid calendar date, and not be in the future. `country` must be a two-letter uppercase ISO code.
+
+**Successful Response**
+
+```json
+{
+  "identityId": "0f5b2e9d34cb49b2ac62e98fb97df30a",
+  "commitment": "31e6f54cefd2c1e178777f318e0c89209e42d9945f934d5a264de8f8999dbe4d",
+  "attributesRoot": "8c58f4ae9f86d87e2d860b02079de4b32bc413fc3bc533acf9fd2fb736f149fb"
+}
+```
+
+Status: `200 OK`
+
+**Failure Scenarios**
+
+- Missing or malformed fields:
+
+  ```json
+  { "error": "identityId, birthdate, and country are required" }
+  ```
+
+- Invalid birthdate or future date:
+
+  ```json
+  { "error": "Invalid birthdate format, expected YYYY-MM-DD" }
+  ```
+
+- Invalid country code:
+
+  ```json
+  { "error": "Country must be a 2-letter ISO code (e.g. PT)" }
+  ```
+
+- Unknown identity:
+
+  ```json
+  { "error": "Identity 123 not found" }
+  ```
+
+Status: `400 Bad Request` for validation errors, `404 Not Found` when the identity is missing.
+
+---
+
 ### `POST /proof`
 
 Generate a deterministic proof for an existing identity.
@@ -57,6 +115,18 @@ All three fields are required and must be strings.
 ```
 
 Status: `200 OK`
+
+**Proof Hash Derivation**
+
+`proofHash` is a deterministic SHA-256 digest of:
+
+```
+identityId + templateId + stored commitment + stored attributesRoot (empty string if undefined)
+```
+
+This binds the proof to the exact identity data held in the vault, so swapping identities or commitments invalidates the proof.
+
+Issuing a proof also requires the stored attributes to satisfy the requested template. For the default `age_over_18_and_resident_pt` template, the identity must have `birthdate` + `country` attributes set, the computed age must be ≥ 18, and the country must equal `PT`.
 
 **Error Response**
 
@@ -119,3 +189,5 @@ Status: `200 OK`
   ```json
   { "error": "identityId mismatch between request and proof bundle" }
   ```
+
+`verifyProof` recomputes the deterministic hash using the stored commitment/attributesRoot and re-evaluates the template criteria, so proofs are only valid while the vault still contains attributes that satisfy the claim.
