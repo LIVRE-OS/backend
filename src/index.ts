@@ -8,6 +8,7 @@ import cors from "cors";
 import proofRoutes from "./routes/proof";
 import identityRoutes from "./routes/identity";
 import { SERVER_PORT } from "./config";
+import { registerVaultRoutes } from "./routes/vaultRoutes";
 
 const WEBSITE_ROOT = path.resolve(process.cwd(), "website");
 
@@ -86,6 +87,7 @@ async function buildServer() {
   // API routes used by the Agent/Verifier apps.
   server.register(proofRoutes);
   server.register(identityRoutes);
+  server.register(registerVaultRoutes);
 
   server.get("/health", async (_request, _reply) => {
     return { status: "ok" };

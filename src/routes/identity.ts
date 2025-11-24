@@ -86,58 +86,72 @@ export default async function identityRoutes(fastify: FastifyInstance) {
     return null;
   }
 
-  fastify.post("/attributes", async (request, reply) => {
-    const body = request.body as (Partial<AttributesPayload> & {
-      identityId?: string;
-    }) | null;
+fastify.post("/attributes", async (request, reply) => {
+  const body = request.body as AttributesPayload | any;
 
-    if (!body || typeof body !== "object") {
-      reply.code(400);
-      return { error: "identityId, birthdate, and country are required" };
-    }
+  const identityIdRaw = body?.identityId;
+  const attrsRaw = (body?.attributes ?? {}) as any;
 
-    const { identityId, birthdate, country } = body;
-    if (!identityId || typeof identityId !== "string") {
-      reply.code(400);
-      return { error: "identityId is required" };
-    }
+  const identityId =
+    typeof identityIdRaw === "string"
+      ? identityIdRaw.trim()
+      : String(identityIdRaw || "").trim();
 
-    if (typeof birthdate !== "string") {
-      reply.code(400);
-      return { error: "birthdate must be provided as a string" };
-    }
-    if (typeof country !== "string") {
-      reply.code(400);
-      return { error: "country must be provided as a string" };
-    }
+  const birthRaw = attrsRaw.birthdate;
+  const countryRaw = attrsRaw.country;
 
-    const birthdateError = validateBirthdate(birthdate);
-    if (birthdateError) {
-      reply.code(400);
-      return { error: birthdateError };
-    }
+  // Force-coerce to string if possible
+  const birthdate =
+    typeof birthRaw === "string"
+      ? birthRaw
+      : birthRaw != null
+      ? String(birthRaw)
+      : "";
 
-    const countryError = validateCountry(country);
-    if (countryError) {
-      reply.code(400);
-      return { error: countryError };
-    }
+  const country =
+    typeof countryRaw === "string"
+      ? countryRaw
+      : countryRaw != null
+      ? String(countryRaw)
+      : "";
 
-    if (!getIdentity(identityId)) {
-      reply.code(404);
-      return { error: `Identity ${identityId} not found` };
-    }
+  if (!identityId) {
+    reply.code(400);
+    return { error: "identityId is required" };
+  }
 
-    try {
-      const updated = setAttributes(identityId, { birthdate, country });
-      return updated;
-    } catch (err) {
-      request.log.error({ err }, "Failed to set attributes");
-      reply.code(400);
-      return {
-        error:
-          err instanceof Error ? err.message : "Failed to set attributes",
-      };
-    }
-  });
+  if (!birthdate) {
+    reply.code(400);
+    return { error: "birthdate must be provided as a string" };
+  }
+
+  if (!country) {
+    reply.code(400);
+    return { error: "country must be provided as a string" };
+  }
+
+  const birthdateError = validateBirthdate(birthdate);
+  if (birthdateError) {
+    reply.code(400);
+    return { error: birthdateError };
+  }
+
+  const countryError = validateCountry(country);
+  if (countryError) {
+    reply.code(400);
+    return { error: countryError };
+  }
+
+  try {
+    const updated = setAttributes(identityId, { birthdate, country });
+    return updated;
+  } catch (err) {
+    request.log.error({ err }, "Failed to set attributes");
+    reply.code(400);
+    return {
+      error: err instanceof Error ? err.message : "Failed to set attributes",
+    };
+  }
+});
+
 }

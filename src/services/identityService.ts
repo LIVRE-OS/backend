@@ -4,6 +4,7 @@ import { randomBytes, createHash } from "crypto";
 import type { IdentityRecord } from "../lib/types";
 import { loadVaultState, saveVaultState } from "./vault";
 
+
 const identities = new Map<string, IdentityRecord>();
 
 const initialState = loadVaultState();
@@ -95,4 +96,12 @@ export function updateAttributesRoot(
 
 export function persistIdentityStore(): void {
   persistIdentities();
+}
+// Vault helpers: expose what we already have in `identities`
+export function getIdentityFromVault(id: string): IdentityRecord | undefined {
+  return identities.get(id);
+}
+
+export function listIdentitiesFromVault(): IdentityRecord[] {
+  return Array.from(identities.values());
 }

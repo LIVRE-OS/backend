@@ -171,14 +171,23 @@ export function generateProof(req: ProofRequest): ProofBundle | null {
     attributesRoot: identity.attributesRoot,
   });
 
-  return {
+  const proof: ProofBundle = {
     identityId: req.identityId,
     templateId: req.templateId,
     proofHash,
     issuedAt: new Date().toISOString(),
   };
-}
 
+  // store for Vault view
+  registerProofInVault({
+    identityId: proof.identityId,
+    templateId: proof.templateId,
+    proofHash: proof.proofHash,
+    issuedAt: proof.issuedAt,
+  });
+
+  return proof;
+}
 // -----------------------------------------------
 // PROOF VERIFICATION
 // -----------------------------------------------
@@ -228,4 +237,24 @@ export function verifyProof(
 
   // 6. Final decision
   return expectedHash === proofHash;
+}
+// -----------------------------------------------
+// VAULT PROOF REGISTRY
+// -----------------------------------------------
+
+interface ProofRecord {
+  identityId: string;
+  templateId: string;
+  proofHash: string;
+  issuedAt: string;
+}
+
+const proofRegistry: ProofRecord[] = [];
+
+export function registerProofInVault(proof: ProofRecord): void {
+  proofRegistry.push(proof);
+}
+
+export function listProofsForIdentityFromVault(identityId: string): ProofRecord[] {
+  return proofRegistry.filter((p) => p.identityId === identityId);
 }
