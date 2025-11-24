@@ -1,0 +1,17 @@
+# Ignore encrypted vault storage
+data/vault.json.enc
+
+# Ignore local vault backups (if any)
+data/*.enc
+
+# Node
+node_modules/
+dist/
+logs/
+
+# Environment
+.env
+.env.local
+
+# Editor folders
+.vscode/
