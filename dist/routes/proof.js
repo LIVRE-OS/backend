@@ -1,0 +1,49 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = proofRoutes;
+const proofService_1 = require("../services/proofService");
+async function proofRoutes(fastify) {
+    // Generate proof for an identity + template
+    // MVP assumption: identity must have been created earlier in this process.
+    fastify.post("/proof", async (request, reply) => {
+        const body = request.body;
+        if (!body ||
+            typeof body.identityId !== "string" ||
+            typeof body.commitment !== "string" ||
+            typeof body.templateId !== "string") {
+            reply.code(400);
+            return { error: "identityId, commitment, templateId required" };
+        }
+        const proof = (0, proofService_1.generateProof)(body);
+        if (!proof) {
+            reply.code(400);
+            return {
+                error: "Unable to generate proof (identity not found or commitment mismatch)",
+            };
+        }
+        return proof;
+    });
+    // Verify proof bundle against the stored identity + commitment
+    // Verifier UI sends the exact proof the Agent just returned.
+    fastify.post("/proof/verify", async (request, reply) => {
+        const body = request.body;
+        if (!body || typeof body.identityId !== "string" || !body.proof) {
+            reply.code(400);
+            return { error: "identityId and proof are required" };
+        }
+        const proof = body.proof;
+        if (typeof proof.identityId !== "string" ||
+            typeof proof.templateId !== "string" ||
+            typeof proof.proofHash !== "string" ||
+            typeof proof.issuedAt !== "string") {
+            reply.code(400);
+            return { error: "identityId and proof are required" };
+        }
+        if (body.identityId !== proof.identityId) {
+            reply.code(400);
+            return { error: "identityId mismatch between request and proof bundle" };
+        }
+        const ok = (0, proofService_1.verifyProof)(proof);
+        return { valid: ok };
+    });
+}
