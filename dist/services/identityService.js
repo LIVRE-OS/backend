@@ -3,10 +3,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createIdentity = createIdentity;
 exports.getIdentity = getIdentity;
 exports.updateAttributesRoot = updateAttributesRoot;
+exports.persistIdentityStore = persistIdentityStore;
+exports.getIdentityFromVault = getIdentityFromVault;
+exports.listIdentitiesFromVault = listIdentitiesFromVault;
 // src/services/identityService.ts
-// MVP: in-memory identity registry for Age Proof demo. Restarting clears everything.
+// Identity registry backed by the encrypted vault service.
 const crypto_1 = require("crypto");
+const vault_1 = require("./vault");
 const identities = new Map();
+const initialState = (0, vault_1.loadVaultState)();
+initialState.identities.forEach((record) => {
+    identities.set(record.identityId, record);
+});
+function persistIdentities() {
+    (0, vault_1.saveVaultState)({ identities: Array.from(identities.values()) });
+}
 function randomId() {
     return (0, crypto_1.randomBytes)(16).toString("hex");
 }
@@ -35,13 +46,13 @@ function createIdentity() {
         policiesRoot,
     };
     identities.set(identityId, record);
+    persistIdentities();
     return record;
 }
 function getIdentity(id) {
     return identities.get(id);
 }
 function updateAttributesRoot(identityId, newAttributesRoot) {
-    // Placeholder: vault service calls this after synthetic attribute updates.
     const record = identities.get(identityId);
     if (!record) {
         return null;
@@ -53,5 +64,16 @@ function updateAttributesRoot(identityId, newAttributesRoot) {
         commitment,
     };
     identities.set(identityId, updated);
+    persistIdentities();
     return updated;
+}
+function persistIdentityStore() {
+    persistIdentities();
+}
+// Vault helpers: expose what we already have in `identities`
+function getIdentityFromVault(id) {
+    return identities.get(id);
+}
+function listIdentitiesFromVault() {
+    return Array.from(identities.values());
 }

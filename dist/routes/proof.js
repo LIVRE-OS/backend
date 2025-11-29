@@ -1,10 +1,13 @@
 "use strict";
+// src/routes/proof.ts
+// Agent issues proofs via POST /proof; Verifier posts bundles to /proof/verify.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = proofRoutes;
 const proofService_1 = require("../services/proofService");
 async function proofRoutes(fastify) {
-    // Generate proof for an identity + template
-    // MVP assumption: identity must have been created earlier in this process.
+    // -----------------------------------------
+    // Generate Proof
+    // -----------------------------------------
     fastify.post("/proof", async (request, reply) => {
         const body = request.body;
         if (!body ||
@@ -18,13 +21,14 @@ async function proofRoutes(fastify) {
         if (!proof) {
             reply.code(400);
             return {
-                error: "Unable to generate proof (identity not found or commitment mismatch)",
+                error: "Unable to generate proof (identity not found, commitment mismatch, or attributes do not satisfy the template requirements)",
             };
         }
         return proof;
     });
-    // Verify proof bundle against the stored identity + commitment
-    // Verifier UI sends the exact proof the Agent just returned.
+    // -----------------------------------------
+    // Verify Proof
+    // -----------------------------------------
     fastify.post("/proof/verify", async (request, reply) => {
         const body = request.body;
         if (!body || typeof body.identityId !== "string" || !body.proof) {
@@ -37,13 +41,13 @@ async function proofRoutes(fastify) {
             typeof proof.proofHash !== "string" ||
             typeof proof.issuedAt !== "string") {
             reply.code(400);
-            return { error: "identityId and proof are required" };
+            return { error: "Malformed proof bundle" };
         }
         if (body.identityId !== proof.identityId) {
             reply.code(400);
             return { error: "identityId mismatch between request and proof bundle" };
         }
-        const ok = (0, proofService_1.verifyProof)(proof);
+        const ok = (0, proofService_1.verifyProof)({ identityId: body.identityId }, proof);
         return { valid: ok };
     });
-}
+} // <-- THIS is the final bracket

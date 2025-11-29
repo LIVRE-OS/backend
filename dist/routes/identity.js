@@ -71,20 +71,33 @@ async function identityRoutes(fastify) {
     }
     fastify.post("/attributes", async (request, reply) => {
         const body = request.body;
-        if (!body || typeof body !== "object") {
-            reply.code(400);
-            return { error: "identityId, birthdate, and country are required" };
-        }
-        const { identityId, birthdate, country } = body;
-        if (!identityId || typeof identityId !== "string") {
+        const identityIdRaw = body?.identityId;
+        const attrsRaw = (body?.attributes ?? {});
+        const identityId = typeof identityIdRaw === "string"
+            ? identityIdRaw.trim()
+            : String(identityIdRaw || "").trim();
+        const birthRaw = attrsRaw.birthdate;
+        const countryRaw = attrsRaw.country;
+        // Force-coerce to string if possible
+        const birthdate = typeof birthRaw === "string"
+            ? birthRaw
+            : birthRaw != null
+                ? String(birthRaw)
+                : "";
+        const country = typeof countryRaw === "string"
+            ? countryRaw
+            : countryRaw != null
+                ? String(countryRaw)
+                : "";
+        if (!identityId) {
             reply.code(400);
             return { error: "identityId is required" };
         }
-        if (typeof birthdate !== "string") {
+        if (!birthdate) {
             reply.code(400);
             return { error: "birthdate must be provided as a string" };
         }
-        if (typeof country !== "string") {
+        if (!country) {
             reply.code(400);
             return { error: "country must be provided as a string" };
         }
@@ -97,10 +110,6 @@ async function identityRoutes(fastify) {
         if (countryError) {
             reply.code(400);
             return { error: countryError };
-        }
-        if (!(0, identityService_1.getIdentity)(identityId)) {
-            reply.code(404);
-            return { error: `Identity ${identityId} not found` };
         }
         try {
             const updated = (0, proofService_1.setAttributes)(identityId, { birthdate, country });
